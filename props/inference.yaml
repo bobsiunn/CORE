@@ -1,0 +1,13 @@
+data_path: dataset/
+dataset: bob
+
+USER_ID_FIELD: session_id
+ITEM_ID_FIELD: item_id
+RATING_FIELD: rating
+TIME_FIELD: timestamp
+
+load_col: 
+  inter: [session_id, item_id_list, item_id]
+
+user_inter_num_interval: "[0,inf)"
+item_inter_num_interval: "[0,inf)"

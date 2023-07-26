@@ -3,6 +3,9 @@ from logging import getLogger
 from recbole.config import Config
 from recbole.data import create_dataset, data_preparation
 from recbole.utils import init_logger, get_trainer, init_seed, set_color
+import torch
+import numpy as np
+from pyJoules.energy_meter import measure_energy
 
 from core_ave import COREave
 from core_trm import COREtrm
@@ -59,11 +62,51 @@ def run_single_model(args):
         'test_result': test_result
     }
 
+@measure_energy
+def inference(args):
+    checkpoint = torch.load('./saved/COREtrm-Jul-26-2023_13-10-45.pth')
+    config = checkpoint['config']
+    config['dataset'] = args.dataset
+    
+    
+    dataset = create_dataset(config)
+    train_data, valid_data, test_data = data_preparation(config, dataset)
+    
+    model = COREtrm(config, test_data.dataset).to(config['device'])
+    model.load_state_dict(checkpoint['state_dict'])
+    model.load_other_parameter(checkpoint.get('other_parameter'))
+    
+    
+    device = config.final_config_dict['device']
+    
+    print(config)
+    print(dataset)
+    
+    model.eval()
+    
+    for data in test_data:
+        interaction = data[0].to(device)
+        score = model.full_sort_predict(interaction)
+        
+        rating_pred = score.cpu().data.numpy().copy()
+        
+        for user_pred in rating_pred:  
+            sorted_rating_pred = np.argsort(user_pred)[::-1]
+            print(sorted_rating_pred[:2])
+    return
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, default='trm', help='ave or trm')
     parser.add_argument('--dataset', type=str, default='diginetica', help='diginetica, nowplaying, retailrocket, tmall, yoochoose')
+    parser.add_argument('--inference', type=bool, default='False', help='True to inference')
+    parser.add_argument('--model_path', '-m', type=str, default='saved/model.pth', help='name of models')
     args, _ = parser.parse_known_args()
-
-    run_single_model(args)
+    
+    inference(args)
+    
+    if args.inference: 
+        inference(args)
+    else:
+        run_single_model(args)
